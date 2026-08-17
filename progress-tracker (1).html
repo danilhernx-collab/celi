@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#161211">
+    <title>Progress Tracker</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #161110;
+            --card: #221A16;
+            --card-hover: #2B211B;
+            --line: #3A2C22;
+            --ink: #F5ECE0;
+            --ink-dim: #B7A697;
+            --ink-faint: #7C6C5E;
+
+            --orange: #FF7E27;
+            --orange-light: #FFB86B;
+            --orange-deep: #E8551C;
+            --orange-dim: rgba(255, 126, 39, 0.15);
+
+            --xp-gradient: linear-gradient(90deg, var(--orange-light), var(--orange-deep));
+            --danger: #FF5C4D;
+
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--ink);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+            padding-top: var(--safe-area-top);
+            padding-bottom: calc(var(--safe-area-bottom) + 80px);
+        }
+
+        /* Inputs must always allow text selection/typing — fixes invisible-text bug */
+        input, textarea, select {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        /* Ambient Background */
+        .bg-fx {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;
+            background:
+                radial-gradient(circle at 10% 10%, rgba(255, 126, 39, 0.08), transparent 30%),
+                radial-gradient(circle at 90% 80%, rgba(232, 85, 28, 0.06), transparent 30%),
+                radial-gradient(circle at 50% 50%, rgba(255, 184, 107, 0.04), transparent 50%);
+        }
+
+        h1, h2, h3 { font-family: 'Fraunces', serif; font-weight: 600; }
+
+        .container { padding: 0 16px; max-width: 600px; margin: 0 auto; }
+
+        /* Tabs Logic */
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(-8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 0 0 rgba(255, 126, 39, 0.5); }
+            70% { box-shadow: 0 0 0 8px rgba(255, 126, 39, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 126, 39, 0); }
+        }
+        @keyframes bounceIn {
+            0% { transform: translateX(-50%) translateY(-100px) scale(0.9); opacity: 0; }
+            60% { transform: translateX(-50%) translateY(4px) scale(1.03); opacity: 1; }
+            100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(22, 17, 16, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top: 1px solid var(--line);
+            display: flex; justify-content: space-around; align-items: center;
+            padding-bottom: var(--safe-area-bottom);
+            height: calc(65px + var(--safe-area-bottom));
+            z-index: 50;
+        }
+        .nav-btn {
+            background: none; border: none; color: var(--ink-faint);
+            font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            width: 25%; padding: 10px 0; cursor: pointer; transition: color 0.2s, transform 0.15s;
+        }
+        .nav-btn.active { color: var(--orange); }
+        .nav-btn:active { transform: scale(0.92); }
+        .nav-icon { font-size: 20px; }
+
+        /* Banner */
+        .banner {
+            position: relative; margin-top: 16px; height: 180px; border-radius: 20px;
+            overflow: hidden; display: flex; align-items: flex-end; padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5); border: 1px solid var(--line);
+            background-size: cover; background-position: center;
+        }
+        .banner-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(180deg, rgba(22,17,16,0) 0%, rgba(22,17,16,0.95) 100%);
+            z-index: 1;
+        }
+        .banner-content { position: relative; z-index: 2; width: 100%; }
+        .banner-content h1 { font-size: 24px; color: var(--ink); margin-bottom: 4px; }
+        .banner-content p { font-size: 14px; color: var(--orange-light); font-weight: 500; }
+        .btn-edit-goal {
+            position: absolute; top: 16px; right: 16px; z-index: 3;
+            background: rgba(34, 26, 22, 0.7); backdrop-filter: blur(5px);
+            border: 1px solid var(--line); color: var(--ink);
+            width: 32px; height: 32px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 14px; transition: 0.2s;
+        }
+        .btn-edit-goal:active { background: var(--card); transform: scale(0.92); }
+
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: 1fr auto; gap: 16px; margin-top: 24px; }
+        .stat-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; transition: border-color 0.3s; }
+        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .level-title { font-size: 14px; color: var(--ink-dim); font-weight: 600; text-transform: uppercase; }
+        .level-number { font-size: 20px; font-family: 'Fraunces', serif; color: var(--orange); }
+        .xp-bar-bg { height: 8px; background-color: var(--bg); border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5); }
+        .xp-bar-fill { height: 100%; background: var(--xp-gradient); width: 0%; transition: width 0.5s cubic-bezier(0.1, 0.7, 0.1, 1); border-radius: 4px; }
+        .xp-bar-fill.pulse { animation: pulseGlow 0.6s ease-out; }
+        .xp-text { font-size: 12px; color: var(--ink-dim); margin-top: 8px; text-align: right; }
+
+        .streak-card { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 80px; }
+        .streak-icon { font-size: 24px; margin-bottom: 4px; filter: drop-shadow(0 0 5px rgba(255,126,39,0.6)); }
+        .streak-count { font-family: 'Fraunces', serif; font-size: 20px; color: var(--orange); }
+        .streak-label { font-size: 10px; color: var(--ink-faint); text-transform: uppercase; margin-top: 2px; }
+
+        /* Quick stats (progress tab) */
+        .quick-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0 24px; }
+        .quick-stat-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; text-align: center; }
+        .quick-stat-value { font-family: 'Fraunces', serif; font-size: 26px; color: var(--orange); }
+        .quick-stat-label { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; margin-top: 4px; letter-spacing: 0.3px; }
+
+        /* Money / Finance goal */
+        .money-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+        .money-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .money-title { font-size: 12px; color: var(--ink-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+        .money-edit { background: none; border: none; color: var(--ink-faint); font-size: 14px; cursor: pointer; padding: 4px; }
+        .money-edit:active { color: var(--orange); }
+        .money-amount { font-family: 'Fraunces', serif; font-size: 30px; color: var(--orange); margin-bottom: 12px; }
+        .money-amount span { font-size: 16px; color: var(--ink-dim); font-family: 'Inter', sans-serif; }
+        .money-footer { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--ink-dim); }
+        .money-footer .remaining { color: var(--orange-light); font-weight: 600; }
+        .money-reached { color: var(--orange); font-weight: 700; text-align: center; padding: 4px 0 0; font-size: 13px; }
+
+        .deposit-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+        .deposit-item {
+            background-color: var(--card); border: 1px solid var(--line); border-radius: 14px;
+            padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+            animation: slideIn 0.3s ease;
+        }
+        .deposit-amount { font-size: 14px; color: var(--ink); font-weight: 600; }
+        .deposit-date { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
+        /* UI Elements */
+        .section-header { margin: 32px 0 16px; font-size: 20px; color: var(--ink); }
+        .input-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .input-row-secondary { display: flex; gap: 8px; margin-bottom: 8px; }
+        input[type="text"], input[type="number"], input[type="datetime-local"], select {
+            background-color: var(--card); border: 1px solid var(--line); color: var(--ink);
+            padding: 12px 16px; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 14px;
+            outline: none; -webkit-appearance: none; width: 100%;
+            -webkit-text-fill-color: var(--ink);
+            caret-color: var(--orange);
+        }
+        input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0px 1000px var(--card) inset;
+            -webkit-text-fill-color: var(--ink) !important;
+        }
+        input:focus, select:focus { border-color: var(--orange); }
+        .input-main { flex: 1 1 100%; }
+        select.select-category, select.select-diff { flex: 1; min-width: 0; }
+        button.btn-add {
+            background-color: var(--line); border: none; color: var(--ink); border-radius: 12px;
+            width: 44px; height: 44px; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+            flex-shrink: 0; transition: transform 0.15s, background-color 0.2s;
+        }
+        button.btn-add:active { background-color: var(--orange); color: #fff; transform: scale(0.92); }
+
+        .btn-toggle-reminder {
+            background: none; border: none; color: var(--ink-faint); font-size: 12px; font-weight: 600;
+            display: flex; align-items: center; gap: 4px; cursor: pointer; padding: 4px 2px; margin-bottom: 8px;
+            transition: color 0.2s;
+        }
+        .btn-toggle-reminder:active { color: var(--orange); }
+        .reminder-field { margin-bottom: 8px; }
+
+        .toggle-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .toggle-row .btn-toggle-reminder { margin-bottom: 0; }
+        .option-toggle {
+            background: var(--card); border: 1px solid var(--line); color: var(--ink-dim);
+            font-size: 12px; font-weight: 600; padding: 8px 14px; border-radius: 20px;
+            cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
+        }
+        .option-toggle.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+        .option-toggle:active { transform: scale(0.94); }
+
+        /* Category filter chips */
+        .category-filter { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .chip {
+            font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px;
+            border: 1px solid var(--line); color: var(--ink-dim); background: var(--card);
+            cursor: pointer; transition: 0.2s; white-space: nowrap;
+        }
+        .chip.active { background: var(--orange); border-color: var(--orange); color: #fff; }
+        .chip:active { transform: scale(0.94); }
+
+        /* Lists */
+        .list { display: flex; flex-direction: column; gap: 12px; }
+        .list-item {
+            background-color: var(--card); border: 1px solid var(--line); border-radius: 16px;
+            padding: 16px; display: flex; align-items: center; gap: 12px;
+            transition: opacity 0.3s, border-color 0.3s;
+            animation: slideIn 0.3s ease;
+        }
+        .list-item.completed { opacity: 0.5; }
+        .list-item.overdue { border-color: var(--danger); }
+        .list-item.important { box-shadow: 0 0 0 1px rgba(255, 126, 39, 0.4); }
+        .task-info { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        .task-title { font-size: 15px; color: var(--ink); word-break: break-word; }
+        .list-item.completed .task-title { text-decoration: line-through; color: var(--ink-dim); }
+        .task-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .badge { font-size: 11px; padding: 2px 8px; border-radius: 12px; width: max-content; font-weight: 600; }
+        .badge.easy { background: rgba(255, 184, 107, 0.18); color: var(--orange-light); }
+        .badge.medium { background: rgba(255, 126, 39, 0.15); color: var(--orange); }
+        .badge.hard { background: rgba(232, 85, 28, 0.18); color: var(--orange-deep); }
+        .badge.category { background: var(--bg); color: var(--ink-dim); border: 1px solid var(--line); }
+        .badge.due { background: rgba(255, 92, 77, 0.12); color: var(--ink-dim); }
+        .badge.due.overdue-text { color: var(--danger); }
+        .badge.important { background: rgba(255, 126, 39, 0.22); color: var(--orange); }
+        .btn-delete { background: none; border: none; color: var(--ink-faint); font-size: 18px; padding: 8px; cursor: pointer; transition: transform 0.15s; }
+        .btn-delete:active { transform: scale(0.85); color: var(--danger); }
+
+        /* Checkbox */
+        .checkbox-container { display: block; position: relative; padding-left: 24px; cursor: pointer; height: 24px; flex-shrink: 0; }
+        .checkbox-container input { position: absolute; opacity: 0; cursor: pointer; }
+        .checkmark {
+            position: absolute; top: 0; left: 0; height: 24px; width: 24px;
+            background-color: var(--bg); border: 2px solid var(--line); border-radius: 6px; transition: 0.2s;
+        }
+        .checkbox-container input:checked ~ .checkmark { background-color: var(--orange); border-color: var(--orange); }
+        .checkmark:after {
+            content: ""; position: absolute; display: none; left: 7px; top: 3px; width: 5px; height: 10px;
+            border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg);
+        }
+        .checkbox-container input:checked ~ .checkmark:after { display: block; }
+
+        /* Shop Elements */
+        .shop-price { font-size: 13px; color: var(--orange-light); font-weight: 600; margin-top: 4px; }
+        .btn-buy {
+            background-color: rgba(255, 126, 39, 0.1); color: var(--orange); border: 1px solid var(--orange);
+            border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .btn-buy:active { background-color: var(--orange); color: #fff; transform: scale(0.94); }
+        .btn-buy:disabled { border-color: var(--line); color: var(--ink-faint); background: none; opacity: 0.5; }
+
+        /* History Chart */
+        .history-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; margin-bottom: 24px; }
+        .history-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .history-row:last-child { margin-bottom: 0; }
+
+        .label-day { width: 55px; font-size: 12px; color: var(--ink-dim); text-align: right; text-transform: capitalize; }
+        .label-week { width: 90px; font-size: 12px; color: var(--ink-dim); text-align: right; white-space: nowrap; }
+
+        .history-bar-wrap { flex: 1; height: 12px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+        .history-bar-fill { height: 100%; background: var(--xp-gradient); border-radius: 6px; min-width: 4px; transition: width 0.5s; }
+        .history-xp { width: 45px; font-size: 12px; color: var(--orange); font-weight: 600; text-align: right; }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-card { background: var(--card); width: 100%; max-width: 400px; border-radius: 20px; padding: 24px; border: 1px solid var(--line); animation: slideIn 0.25s ease; }
+        .modal-card h2 { margin-bottom: 20px; font-size: 20px; }
+        .modal-input { margin-bottom: 16px; }
+        .modal-input label { display: block; font-size: 12px; color: var(--ink-dim); margin-bottom: 6px; }
+        .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .btn-primary { flex: 1; background: var(--orange); color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: transform 0.15s; }
+        .btn-primary:active { transform: scale(0.96); }
+        .btn-secondary { flex: 1; background: var(--bg); color: var(--ink); border: 1px solid var(--line); padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 40px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            background: var(--card); border: 1px solid var(--orange); color: var(--orange);
+            padding: 12px 24px; border-radius: 24px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transition: 0.4s cubic-bezier(0.1, 0.7, 0.1, 1); opacity: 0; z-index: 200; pointer-events: none;
+        }
+        .toast.show { animation: bounceIn 0.5s cubic-bezier(0.1, 0.7, 0.1, 1) forwards; }
+
+        .empty-state { text-align: center; color: var(--ink-faint); padding: 20px; }
+
+        select { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B7A697' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 12px center; background-size: 16px; padding-right: 36px; }
+    </style>
+</head>
+<body>
+    <div class="bg-fx"></div>
+
+    <div class="container">
+
+        <!-- ================= ТАБ 1: ГЛАВНАЯ ================= -->
+        <div id="tab-main" class="tab-content active">
+            <!-- Banner -->
+            <div class="banner" id="goal-banner">
+                <div class="banner-overlay"></div>
+                <button class="btn-edit-goal" onclick="openModal()">✎</button>
+                <div class="banner-content">
+                    <h1 id="ui-goal-title">Mercedes-Benz CLS W219</h1>
+                    <p id="ui-goal-sub">5.0L V8 • Фокус на цели</p>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="level-title">Level</span>
+                        <span class="level-number" id="level-display">1</span>
+                    </div>
+                    <div class="xp-bar-bg"><div class="xp-bar-fill" id="xp-bar"></div></div>
+                    <div class="xp-text" id="xp-text">0 / 500 XP</div>
+                </div>
+                <div class="stat-card streak-card">
+                    <span class="streak-icon">🔥</span>
+                    <span class="streak-count" id="streak-display">0</span>
+                    <span class="streak-label">Дней</span>
+                </div>
+            </div>
+
+            <div id="habits-section" style="display:none;">
+                <h2 class="section-header">Привычки</h2>
+                <div class="list" id="habit-list"></div>
+            </div>
+
+            <h2 class="section-header">Задачи на сегодня</h2>
+
+            <div class="input-group">
+                <input type="text" id="task-input" class="input-main" placeholder="Что нужно сделать?" autocomplete="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key === 'Enter') addTask()">
+            </div>
+            <div class="input-row-secondary">
+                <select id="task-category" class="select-category"></select>
+                <select id="task-diff" class="select-diff">
+                    <option value="50">Легкая</option>
+                    <option value="100" selected>Средняя</option>
+                    <option value="200">Хард</option>
+                </select>
+                <button class="btn-add" onclick="addTask()">+</button>
+            </div>
+            <div class="toggle-row">
+                <button class="btn-toggle-reminder" onclick="toggleReminderField()">
+                    <span id="reminder-toggle-icon">⏰</span> <span id="reminder-toggle-text">Добавить напоминание</span>
+                </button>
+                <button class="option-toggle" id="important-toggle" onclick="toggleImportantFlag()">🔥 Важно</button>
+                <button class="option-toggle" id="recurring-toggle" onclick="toggleRecurringFlag()">🔁 Каждый день</button>
+            </div>
+            <div class="reminder-field" id="reminder-field" style="display:none;">
+                <input type="datetime-local" id="task-reminder">
+            </div>
+
+            <div class="category-filter" id="category-filter"></div>
+
+            <div class="list" id="task-list"></div>
+        </div>
+
+        <!-- ================= ТАБ 2: ПРОГРЕСС ================= -->
+        <div id="tab-progress" class="tab-content">
+            <h2 class="section-header" style="margin-top: 16px;">Итоги этой недели</h2>
+            <div class="quick-stats">
+                <div class="quick-stat-card">
+                    <div class="quick-stat-value" id="week-xp">0</div>
+                    <div class="quick-stat-label">XP за неделю</div>
+                </div>
+                <div class="quick-stat-card">
+                    <div class="quick-stat-value" id="week-tasks">0</div>
+                    <div class="quick-stat-label">Задач выполнено</div>
+                </div>
+                <div class="quick-stat-card">
+                    <div class="quick-stat-value" id="week-money">0 ₽</div>
+                    <div class="quick-stat-label">Заработано</div>
+                </div>
+                <div class="quick-stat-card">
+                    <div class="quick-stat-value" id="week-best-day">—</div>
+                    <div class="quick-stat-label">Лучший день</div>
+                </div>
+            </div>
+
+            <h2 class="section-header">Общая статистика</h2>
+            <div class="quick-stats">
+                <div class="quick-stat-card">
+                    <div class="quick-stat-value" id="best-streak-display">0</div>
+                    <div class="quick-stat-label">Лучшая серия</div>
+                </div>
+                <div class="quick-stat-card">
+                    <div class="quick-stat-value" id="total-completed-display">0</div>
+                    <div class="quick-stat-label">Выполнено задач</div>
+                </div>
+            </div>
+
+            <h2 class="section-header" style="margin-top: 0;">За 7 дней</h2>
+            <div class="history-card" id="history-days"></div>
+
+            <h2 class="section-header">За месяц (по неделям)</h2>
+            <div class="history-card" id="history-weeks"></div>
+        </div>
+
+        <!-- ================= ТАБ 3: ФИНАНСЫ ================= -->
+        <div id="tab-finance" class="tab-content">
+            <h2 class="section-header" style="margin-top: 16px;">Денежная цель</h2>
+            <div class="money-card">
+                <div class="money-header">
+                    <span class="money-title">Накоплено</span>
+                    <button class="money-edit" onclick="openMoneyModal()">✎ Цель</button>
+                </div>
+                <div class="money-amount" id="money-saved">0 <span>₽</span></div>
+                <div class="xp-bar-bg"><div class="xp-bar-fill" id="money-bar"></div></div>
+                <div class="money-footer">
+                    <span id="money-percent">0%</span>
+                    <span class="remaining" id="money-remaining">Осталось: 1 500 000 ₽</span>
+                </div>
+                <div class="money-reached" id="money-reached" style="display:none;">🎉 Цель достигнута!</div>
+            </div>
+            <div class="input-group" style="margin-top: 16px;">
+                <input type="number" id="deposit-input" class="input-main" placeholder="Сколько заработал, ₽" onkeydown="if(event.key === 'Enter') addDeposit()">
+            </div>
+            <button class="btn-primary" style="width: 100%; margin-bottom: 8px;" onclick="addDeposit()">Внести деньги</button>
+            <h2 class="section-header">История</h2>
+            <div class="deposit-list" id="deposit-list"></div>
+        </div>
+
+        <!-- ================= ТАБ 4: МАГАЗИН ================= -->
+        <div id="tab-shop" class="tab-content">
+            <h2 class="section-header" style="margin-top: 16px;">Dopamine Shop</h2>
+            <div class="input-group">
+                <input type="text" id="reward-input" class="input-main" placeholder="Награда" autocomplete="off">
+            </div>
+            <div class="input-row-secondary">
+                <input type="number" id="reward-cost" placeholder="XP" onkeydown="if(event.key === 'Enter') addReward()">
+                <button class="btn-add" onclick="addReward()">+</button>
+            </div>
+            <div class="list" id="reward-list"></div>
+        </div>
+
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-btn active" onclick="switchTab('main')" id="btn-tab-main">
+            <span class="nav-icon">🎯</span><span>Главная</span>
+        </button>
+        <button class="nav-btn" onclick="switchTab('progress')" id="btn-tab-progress">
+            <span class="nav-icon">📈</span><span>Прогресс</span>
+        </button>
+        <button class="nav-btn" onclick="switchTab('finance')" id="btn-tab-finance">
+            <span class="nav-icon">💰</span><span>Финансы</span>
+        </button>
+        <button class="nav-btn" onclick="switchTab('shop')" id="btn-tab-shop">
+            <span class="nav-icon">🛒</span><span>Магазин</span>
+        </button>
+    </nav>
+
+    <!-- Modal Edit Goal -->
+    <div class="modal-overlay" id="goal-modal">
+        <div class="modal-card">
+            <h2>Редактировать цель</h2>
+            <div class="modal-input">
+                <label>Заголовок (Что это?)</label>
+                <input type="text" id="edit-title" placeholder="Mercedes-Benz CLS W219">
+            </div>
+            <div class="modal-input">
+                <label>Подзаголовок / Мотивация</label>
+                <input type="text" id="edit-sub" placeholder="5.0L V8 • Фокус на цели">
+            </div>
+            <div class="modal-input">
+                <label>Ссылка на картинку (URL)</label>
+                <input type="text" id="edit-img" placeholder="https://...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+                <button class="btn-primary" onclick="saveGoal()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edit Money Target -->
+    <div class="modal-overlay" id="money-modal">
+        <div class="modal-card">
+            <h2>Финансовая цель</h2>
+            <div class="modal-input">
+                <label>Сколько нужно накопить, ₽</label>
+                <input type="number" id="edit-target" placeholder="1500000">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeMoneyModal()">Отмена</button>
+                <button class="btn-primary" onclick="saveMoneyTarget()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const STORAGE_KEY = 'progressTrackerState_v3';
+
+        const CATEGORIES = [
+            { id: 'other', label: 'Личное', color: '#B7A697' },
+            { id: 'work', label: 'Работа', color: '#FF7E27' },
+            { id: 'home', label: 'Дом', color: '#FFB86B' },
+            { id: 'sport', label: 'Спорт', color: '#E8551C' },
+            { id: 'study', label: 'Учёба', color: '#C9702E' }
+        ];
+
+        let state = {
+            xp: 0,
+            streak: 0,
+            bestStreak: 0,
+            totalCompleted: 0,
+            lastDate: null,
+            tasks: [],
+            habits: [],
+            rewards: [
+                { id: 'def1', title: 'Вечер без работы (Покер / Игры)', cost: 300 },
+                { id: 'def2', title: 'Покупка новой вещи / Гаджета', cost: 1500 }
+            ],
+            goal: {
+                title: 'Mercedes-Benz CLS W219',
+                sub: '5.0L V8 • Фокус на цели',
+                img: 'https://images.unsplash.com/photo-1549645229-7d08b31eaeb5?q=80&w=1000&auto=format&fit=crop'
+            },
+            history: {},
+            finance: {
+                target: 1500000,
+                deposits: []
+            }
+        };
+
+        let activeCategory = 'all';
+        let creatingImportant = false;
+        let creatingRecurring = false;
+
+        function init() {
+            const saved = localStorage.getItem(STORAGE_KEY)
+                || localStorage.getItem('progressTrackerState_v2')
+                || localStorage.getItem('progressTrackerState_v1');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    state = { ...state, ...parsed };
+                } catch (e) {
+                    console.error('Failed to parse saved state', e);
+                }
+            }
+            if (!Array.isArray(state.tasks)) state.tasks = [];
+            if (!Array.isArray(state.habits)) state.habits = [];
+            if (!Array.isArray(state.rewards)) state.rewards = [];
+            if (!state.goal) state.goal = { title: 'Моя Цель', sub: 'Вперед!', img: '' };
+            if (!state.history) state.history = {};
+            if (typeof state.bestStreak !== 'number') state.bestStreak = state.streak || 0;
+            if (typeof state.totalCompleted !== 'number') {
+                state.totalCompleted = state.tasks.filter(t => t.completed).length;
+            }
+            if (!state.finance) state.finance = { target: 1500000, deposits: [] };
+            if (typeof state.finance.target !== 'number') state.finance.target = 1500000;
+            if (!Array.isArray(state.finance.deposits)) state.finance.deposits = [];
+            // migrate tasks missing new fields
+            state.tasks.forEach(t => {
+                if (!t.category) t.category = 'other';
+                if (t.reminder === undefined) t.reminder = null;
+                if (t.important === undefined) t.important = false;
+            });
+            // migrate habits missing new fields
+            state.habits.forEach(h => {
+                if (!h.category) h.category = 'other';
+                if (h.important === undefined) h.important = false;
+                if (!Array.isArray(h.completedDates)) h.completedDates = [];
+            });
+            // migrate history entries missing tasksCompleted
+            Object.values(state.history).forEach(entry => {
+                if (entry.tasksCompleted === undefined) entry.tasksCompleted = 0;
+            });
+
+            populateCategorySelect();
+            checkStreak();
+            renderAll();
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            document.getElementById(`btn-tab-${tabId}`).classList.add('active');
+
+            if (tabId === 'progress') renderHistory();
+        }
+
+        function getLocalISODate(dateObj) {
+            const d = new Date(dateObj);
+            d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+            return d.toISOString().split('T')[0];
+        }
+
+        function checkStreak() {
+            const todayStr = getLocalISODate(new Date());
+            if (!state.lastDate) return;
+
+            const last = new Date(state.lastDate);
+            const current = new Date(todayStr);
+            const diffDays = Math.ceil(Math.abs(current - last) / (1000 * 60 * 60 * 24));
+
+            if (diffDays > 1) state.streak = 0;
+        }
+
+        function trackXP(amount, taskDelta) {
+            taskDelta = taskDelta || 0;
+            const todayStr = getLocalISODate(new Date());
+            if (state.lastDate !== todayStr) {
+                state.streak += 1;
+                state.lastDate = todayStr;
+                if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+            }
+            if (!state.history[todayStr]) state.history[todayStr] = { xp: 0, tasksCompleted: 0 };
+            state.history[todayStr].xp += amount;
+            if (state.history[todayStr].xp < 0) state.history[todayStr].xp = 0;
+            state.history[todayStr].tasksCompleted = (state.history[todayStr].tasksCompleted || 0) + taskDelta;
+            if (state.history[todayStr].tasksCompleted < 0) state.history[todayStr].tasksCompleted = 0;
+        }
+
+        function renderAll() {
+            renderGoal();
+            renderStats();
+            renderMoney();
+            renderCategoryFilter();
+            renderTasks();
+            renderHabits();
+            renderRewards();
+            saveState();
+        }
+
+        function formatRub(n) {
+            return Math.round(n).toLocaleString('ru-RU');
+        }
+
+        function renderMoney(pulse) {
+            const target = state.finance.target || 1;
+            const saved = state.finance.deposits.reduce((sum, d) => sum + d.amount, 0);
+            const percent = Math.min(100, (saved / target) * 100);
+            const remaining = Math.max(0, target - saved);
+
+            document.getElementById('money-saved').innerHTML = `${formatRub(saved)} <span>₽</span>`;
+            const bar = document.getElementById('money-bar');
+            bar.style.width = `${percent}%`;
+            document.getElementById('money-percent').innerText = `${percent.toFixed(1)}%`;
+
+            const remainingEl = document.getElementById('money-remaining');
+            const reachedEl = document.getElementById('money-reached');
+            if (remaining <= 0) {
+                remainingEl.style.display = 'none';
+                reachedEl.style.display = 'block';
+            } else {
+                remainingEl.style.display = 'inline';
+                reachedEl.style.display = 'none';
+                remainingEl.innerText = `Осталось: ${formatRub(remaining)} ₽`;
+            }
+
+            if (pulse) {
+                bar.classList.remove('pulse');
+                void bar.offsetWidth;
+                bar.classList.add('pulse');
+            }
+
+            renderDeposits();
+        }
+
+        function renderDeposits() {
+            const container = document.getElementById('deposit-list');
+            if (state.finance.deposits.length === 0) {
+                container.innerHTML = '';
+                return;
+            }
+            const sorted = [...state.finance.deposits].sort((a, b) => b.date - a.date);
+            let html = '';
+            sorted.forEach(d => {
+                const dateLabel = new Date(d.date).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                html += `
+                    <div class="deposit-item">
+                        <div>
+                            <div class="deposit-amount">+${formatRub(d.amount)} ₽</div>
+                            <div class="deposit-date">${dateLabel}</div>
+                        </div>
+                        <button class="btn-delete" onclick="deleteDeposit('${d.id}')">✕</button>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function addDeposit() {
+            const input = document.getElementById('deposit-input');
+            const amount = parseFloat(input.value);
+            if (!amount || amount <= 0) return;
+
+            state.finance.deposits.unshift({
+                id: Date.now().toString(),
+                amount: amount,
+                date: Date.now()
+            });
+            input.value = '';
+            renderMoney(true);
+            saveState();
+            showToast(`+${formatRub(amount)} ₽ внесено!`);
+        }
+
+        function deleteDeposit(id) {
+            state.finance.deposits = state.finance.deposits.filter(d => d.id !== id);
+            renderMoney();
+            saveState();
+        }
+
+        function openMoneyModal() {
+            document.getElementById('edit-target').value = state.finance.target;
+            document.getElementById('money-modal').classList.add('active');
+        }
+
+        function closeMoneyModal() {
+            document.getElementById('money-modal').classList.remove('active');
+        }
+
+        function saveMoneyTarget() {
+            const val = parseFloat(document.getElementById('edit-target').value);
+            state.finance.target = (val && val > 0) ? val : 1500000;
+            closeMoneyModal();
+            renderMoney();
+            saveState();
+        }
+
+        function renderGoal() {
+            document.getElementById('ui-goal-title').innerText = state.goal.title;
+            document.getElementById('ui-goal-sub').innerText = state.goal.sub;
+            const banner = document.getElementById('goal-banner');
+            banner.style.backgroundImage = `url('${state.goal.img}')`;
+        }
+
+        function renderStats(pulse) {
+            const level = Math.floor(state.xp / 500) + 1;
+            const xpProgress = state.xp % 500;
+            const percent = (xpProgress / 500) * 100;
+
+            document.getElementById('level-display').innerText = level;
+            document.getElementById('streak-display').innerText = state.streak;
+            const bar = document.getElementById('xp-bar');
+            bar.style.width = `${percent}%`;
+            document.getElementById('xp-text').innerText = `${xpProgress} / 500 XP (Всего: ${state.xp})`;
+
+            document.getElementById('best-streak-display').innerText = state.bestStreak;
+            document.getElementById('total-completed-display').innerText = state.totalCompleted;
+
+            if (pulse) {
+                bar.classList.remove('pulse');
+                void bar.offsetWidth;
+                bar.classList.add('pulse');
+            }
+        }
+
+        function populateCategorySelect() {
+            const select = document.getElementById('task-category');
+            select.innerHTML = CATEGORIES.map(c => `<option value="${c.id}">${c.label}</option>`).join('');
+        }
+
+        function categoryInfo(id) {
+            return CATEGORIES.find(c => c.id === id) || CATEGORIES[0];
+        }
+
+        function renderCategoryFilter() {
+            const container = document.getElementById('category-filter');
+            const usedIds = new Set(state.tasks.map(t => t.category || 'other'));
+            if (usedIds.size <= 1) { container.innerHTML = ''; return; }
+
+            let html = `<button class="chip ${activeCategory === 'all' ? 'active' : ''}" onclick="setActiveCategory('all')">Все</button>`;
+            CATEGORIES.forEach(c => {
+                if (!usedIds.has(c.id)) return;
+                html += `<button class="chip ${activeCategory === c.id ? 'active' : ''}" onclick="setActiveCategory('${c.id}')">${c.label}</button>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function setActiveCategory(id) {
+            activeCategory = id;
+            renderCategoryFilter();
+            renderTasks();
+        }
+
+        function formatDue(iso) {
+            const d = new Date(iso);
+            const day = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+            const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            return `${day} ${time}`;
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('task-list');
+            let visibleTasks = activeCategory === 'all'
+                ? [...state.tasks]
+                : state.tasks.filter(t => (t.category || 'other') === activeCategory);
+
+            visibleTasks.sort((a, b) => (b.important ? 1 : 0) - (a.important ? 1 : 0));
+
+            if (visibleTasks.length === 0) {
+                container.innerHTML = `<div class="empty-state">Нет активных задач</div>`;
+                return;
+            }
+
+            const now = new Date();
+            let html = '';
+            visibleTasks.forEach(task => {
+                let badgeClass = task.xp === 50 ? 'easy' : task.xp === 100 ? 'medium' : 'hard';
+                const cat = categoryInfo(task.category || 'other');
+                const isOverdue = task.reminder && !task.completed && new Date(task.reminder) < now;
+
+                let dueBadge = '';
+                if (task.reminder) {
+                    dueBadge = `<span class="badge due ${isOverdue ? 'overdue-text' : ''}">⏰ ${formatDue(task.reminder)}</span>`;
+                }
+
+                html += `
+                    <div class="list-item ${task.completed ? 'completed' : ''} ${isOverdue ? 'overdue' : ''} ${task.important ? 'important' : ''}">
+                        <label class="checkbox-container">
+                            <input type="checkbox" onchange="toggleTask('${task.id}')" ${task.completed ? 'checked' : ''}>
+                            <span class="checkmark"></span>
+                        </label>
+                        <div class="task-info">
+                            <span class="task-title">${escapeHtml(task.title)}</span>
+                            <div class="task-badges">
+                                <span class="badge ${badgeClass}">${task.xp} XP</span>
+                                <span class="badge category">${cat.label}</span>
+                                ${task.important ? '<span class="badge important">🔥 Важно</span>' : ''}
+                                ${dueBadge}
+                            </div>
+                        </div>
+                        <button class="btn-delete" onclick="deleteTask('${task.id}')">✕</button>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderRewards() {
+            const container = document.getElementById('reward-list');
+            if (state.rewards.length === 0) {
+                container.innerHTML = `<div class="empty-state">Нет наград в магазине</div>`;
+                return;
+            }
+
+            let html = '';
+            state.rewards.forEach(reward => {
+                const canAfford = state.xp >= reward.cost;
+                html += `
+                    <div class="list-item">
+                        <div class="task-info">
+                            <div class="task-title">${escapeHtml(reward.title)}</div>
+                            <div class="shop-price">${reward.cost} XP</div>
+                        </div>
+                        <button class="btn-buy" ${!canAfford ? 'disabled' : ''} onclick="buyReward('${reward.id}')">Купить</button>
+                        <button class="btn-delete" onclick="deleteReward('${reward.id}')">✕</button>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function renderHistory() {
+            const today = new Date();
+
+            // 1. За 7 дней
+            const daysContainer = document.getElementById('history-days');
+            let daysHtml = '';
+            let maxDailyXp = 500;
+            const daysData = [];
+
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const dateStr = getLocalISODate(d);
+                const xp = state.history[dateStr] ? state.history[dateStr].xp : 0;
+
+                let label = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric' });
+                if (i === 0) label = 'Сег, ' + d.toLocaleDateString('ru-RU', { day: 'numeric' });
+
+                daysData.push({ label, xp });
+                if (xp > maxDailyXp) maxDailyXp = xp;
+            }
+
+            daysData.forEach(item => {
+                const percent = Math.min((item.xp / maxDailyXp) * 100, 100);
+                daysHtml += `
+                    <div class="history-row">
+                        <div class="label-day">${item.label}</div>
+                        <div class="history-bar-wrap">
+                            <div class="history-bar-fill" style="width: ${percent}%;"></div>
+                        </div>
+                        <div class="history-xp">${item.xp}</div>
+                    </div>`;
+            });
+            daysContainer.innerHTML = daysHtml;
+
+            // 2. За месяц (по неделям)
+            const weeksContainer = document.getElementById('history-weeks');
+            let weeksHtml = '';
+            let maxWeekXp = 2000;
+            const weeksData = [];
+
+            for (let w = 3; w >= 0; w--) {
+                let weekXp = 0;
+                const endDate = new Date(today);
+                endDate.setDate(today.getDate() - (w * 7));
+
+                const startDate = new Date(today);
+                startDate.setDate(today.getDate() - (w * 7 + 6));
+
+                for (let d = 0; d < 7; d++) {
+                    const cur = new Date(startDate);
+                    cur.setDate(startDate.getDate() + d);
+                    const dateStr = getLocalISODate(cur);
+                    if (state.history[dateStr]) {
+                        weekXp += state.history[dateStr].xp;
+                    }
+                }
+
+                const formatOpt = { day: '2-digit', month: '2-digit' };
+                const label = `${startDate.toLocaleDateString('ru-RU', formatOpt)} - ${endDate.toLocaleDateString('ru-RU', formatOpt)}`;
+
+                weeksData.push({ label, xp: weekXp });
+                if (weekXp > maxWeekXp) maxWeekXp = weekXp;
+            }
+
+            weeksData.forEach(item => {
+                const percent = Math.min((item.xp / maxWeekXp) * 100, 100);
+                weeksHtml += `
+                    <div class="history-row">
+                        <div class="label-week">${item.label}</div>
+                        <div class="history-bar-wrap">
+                            <div class="history-bar-fill" style="width: ${percent}%;"></div>
+                        </div>
+                        <div class="history-xp">${item.xp}</div>
+                    </div>`;
+            });
+            weeksContainer.innerHTML = weeksHtml;
+
+            renderStats();
+            renderWeeklyRetro();
+        }
+
+        function getMonday(dateObj) {
+            const d = new Date(dateObj);
+            const day = d.getDay();
+            const diff = (day === 0 ? -6 : 1) - day;
+            d.setDate(d.getDate() + diff);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+
+        function renderWeeklyRetro() {
+            const monday = getMonday(new Date());
+            let totalXp = 0, totalTasks = 0, bestXp = -1, bestDay = null;
+
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(monday);
+                d.setDate(monday.getDate() + i);
+                const ds = getLocalISODate(d);
+                const entry = state.history[ds];
+                const xp = entry ? entry.xp : 0;
+                const tasks = entry ? (entry.tasksCompleted || 0) : 0;
+                totalXp += xp;
+                totalTasks += tasks;
+                if (xp > bestXp && xp > 0) { bestXp = xp; bestDay = d; }
+            }
+
+            const totalMoney = state.finance.deposits
+                .filter(dep => new Date(dep.date) >= monday)
+                .reduce((sum, dep) => sum + dep.amount, 0);
+
+            document.getElementById('week-xp').innerText = totalXp;
+            document.getElementById('week-tasks').innerText = totalTasks;
+            document.getElementById('week-money').innerText = `${formatRub(totalMoney)} ₽`;
+            document.getElementById('week-best-day').innerText = bestDay
+                ? bestDay.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric' })
+                : '—';
+        }
+
+        function toggleReminderField() {
+            const field = document.getElementById('reminder-field');
+            const icon = document.getElementById('reminder-toggle-icon');
+            const text = document.getElementById('reminder-toggle-text');
+            const isHidden = field.style.display === 'none';
+            field.style.display = isHidden ? 'block' : 'none';
+            text.innerText = isHidden ? 'Убрать напоминание' : 'Добавить напоминание';
+            if (!isHidden) document.getElementById('task-reminder').value = '';
+        }
+
+        function addTask() {
+            const input = document.getElementById('task-input');
+            const diffSelect = document.getElementById('task-diff');
+            const categorySelect = document.getElementById('task-category');
+            const reminderInput = document.getElementById('task-reminder');
+            if (!input.value.trim()) return;
+
+            const title = input.value.trim();
+            const xp = parseInt(diffSelect.value);
+            const category = categorySelect.value || 'other';
+
+            if (creatingRecurring) {
+                if (!Array.isArray(state.habits)) state.habits = [];
+                state.habits.unshift({
+                    id: Date.now().toString(),
+                    title,
+                    xp,
+                    category,
+                    important: creatingImportant,
+                    completedDates: []
+                });
+            } else {
+                if (!Array.isArray(state.tasks)) state.tasks = [];
+                state.tasks.unshift({
+                    id: Date.now().toString(),
+                    title,
+                    xp,
+                    completed: false,
+                    category,
+                    reminder: reminderInput.value ? new Date(reminderInput.value).toISOString() : null,
+                    important: creatingImportant
+                });
+            }
+
+            input.value = '';
+            reminderInput.value = '';
+            document.getElementById('reminder-field').style.display = 'none';
+            document.getElementById('reminder-toggle-text').innerText = 'Добавить напоминание';
+
+            creatingImportant = false;
+            document.getElementById('important-toggle').classList.remove('active');
+            creatingRecurring = false;
+            document.getElementById('recurring-toggle').classList.remove('active');
+
+            renderAll();
+        }
+
+        function toggleImportantFlag() {
+            creatingImportant = !creatingImportant;
+            document.getElementById('important-toggle').classList.toggle('active', creatingImportant);
+        }
+
+        function toggleRecurringFlag() {
+            creatingRecurring = !creatingRecurring;
+            document.getElementById('recurring-toggle').classList.toggle('active', creatingRecurring);
+        }
+
+        function toggleTask(id) {
+            const task = state.tasks.find(t => t.id === id);
+            if (!task) return;
+
+            task.completed = !task.completed;
+            if (task.completed) {
+                state.xp += task.xp;
+                state.totalCompleted += 1;
+                trackXP(task.xp, 1);
+                showToast(`+${task.xp} XP!`);
+            } else {
+                state.xp = Math.max(0, state.xp - task.xp);
+                state.totalCompleted = Math.max(0, state.totalCompleted - 1);
+                trackXP(-task.xp, -1);
+            }
+            renderGoal();
+            renderStats(true);
+            renderCategoryFilter();
+            renderTasks();
+            renderRewards();
+            saveState();
+        }
+
+        function toggleHabit(id) {
+            const habit = state.habits.find(h => h.id === id);
+            if (!habit) return;
+
+            const today = getLocalISODate(new Date());
+            const idx = habit.completedDates.indexOf(today);
+            if (idx === -1) {
+                habit.completedDates.push(today);
+                state.xp += habit.xp;
+                state.totalCompleted += 1;
+                trackXP(habit.xp, 1);
+                showToast(`+${habit.xp} XP!`);
+            } else {
+                habit.completedDates.splice(idx, 1);
+                state.xp = Math.max(0, state.xp - habit.xp);
+                state.totalCompleted = Math.max(0, state.totalCompleted - 1);
+                trackXP(-habit.xp, -1);
+            }
+            renderGoal();
+            renderStats(true);
+            renderHabits();
+            saveState();
+        }
+
+        function deleteHabit(id) {
+            state.habits = state.habits.filter(h => h.id !== id);
+            renderAll();
+        }
+
+        function renderHabits() {
+            const section = document.getElementById('habits-section');
+            const container = document.getElementById('habit-list');
+            if (!state.habits || state.habits.length === 0) {
+                section.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+            section.style.display = 'block';
+            const today = getLocalISODate(new Date());
+            let html = '';
+            state.habits.forEach(h => {
+                const doneToday = h.completedDates.includes(today);
+                const cat = categoryInfo(h.category || 'other');
+                const timesDone = h.completedDates.length;
+                html += `
+                    <div class="list-item ${doneToday ? 'completed' : ''} ${h.important ? 'important' : ''}">
+                        <label class="checkbox-container">
+                            <input type="checkbox" onchange="toggleHabit('${h.id}')" ${doneToday ? 'checked' : ''}>
+                            <span class="checkmark"></span>
+                        </label>
+                        <div class="task-info">
+                            <span class="task-title">${escapeHtml(h.title)}</span>
+                            <div class="task-badges">
+                                <span class="badge medium">${h.xp} XP</span>
+                                <span class="badge category">${cat.label}</span>
+                                <span class="badge due">🔁 ${timesDone} раз</span>
+                                ${h.important ? '<span class="badge important">🔥 Важно</span>' : ''}
+                            </div>
+                        </div>
+                        <button class="btn-delete" onclick="deleteHabit('${h.id}')">✕</button>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        function deleteTask(id) {
+            state.tasks = state.tasks.filter(t => t.id !== id);
+            renderAll();
+        }
+
+        function addReward() {
+            const input = document.getElementById('reward-input');
+            const costInput = document.getElementById('reward-cost');
+            if (!input.value.trim() || !costInput.value || costInput.value <= 0) return;
+
+            if (!Array.isArray(state.rewards)) state.rewards = [];
+
+            state.rewards.unshift({ id: Date.now().toString(), title: input.value.trim(), cost: parseInt(costInput.value) });
+            input.value = ''; costInput.value = '';
+            renderAll();
+        }
+
+        function buyReward(id) {
+            const reward = state.rewards.find(r => r.id === id);
+            if (!reward || state.xp < reward.cost) return;
+
+            state.xp -= reward.cost;
+            showToast(`Куплено: ${reward.title}`);
+            renderAll();
+        }
+
+        function deleteReward(id) {
+            state.rewards = state.rewards.filter(r => r.id !== id);
+            renderAll();
+        }
+
+        function openModal() {
+            document.getElementById('edit-title').value = state.goal.title;
+            document.getElementById('edit-sub').value = state.goal.sub;
+            document.getElementById('edit-img').value = state.goal.img;
+            document.getElementById('goal-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('goal-modal').classList.remove('active');
+        }
+
+        function saveGoal() {
+            state.goal.title = document.getElementById('edit-title').value.trim() || 'Моя Цель';
+            state.goal.sub = document.getElementById('edit-sub').value.trim() || 'Описание...';
+            state.goal.img = document.getElementById('edit-img').value.trim() || 'https://images.unsplash.com/photo-1549645229-7d08b31eaeb5';
+            closeModal();
+            renderAll();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('show');
+            void toast.offsetWidth;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        init();
+    </script>
+</body>
+</html>
